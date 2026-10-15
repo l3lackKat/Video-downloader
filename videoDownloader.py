@@ -28,6 +28,7 @@ usingCookieChrome = tk.IntVar()
 usingVrVideoClient = tk.IntVar()
 usingFakeUserAgent = tk.IntVar()
 isDownloading = False
+urlArray = []
 
 title = tk.Label(window, text="YT-DLP - Video Downloader", font=("Arial", 16, "bold")).grid(row=TITLE_ROW, sticky=tk.W)
 bestVideoCheckBox = tk.Checkbutton(window, text=" Download with best quality", variable=isBestVideo).grid(row=BEST_VIDEO_OP_ROW, sticky=tk.W)
@@ -46,6 +47,8 @@ def on_download_done():
     reset_state()
     print("Finished!" )
     tk.Label(window, text="FINISHED: Downloaded Video", fg="green").grid(row=STATUS_ROW, sticky=tk.W)
+
+    # check if url array still have
 
 def on_download_err(err:str):
     reset_state()
@@ -90,12 +93,12 @@ def download_video(command:str, window):
         window.after(0, lambda: on_download_done())
 
 
-def download_video_runner():
-    isDownloading = True
-    downloadButton.config(state=tk.DISABLED)
-    print("Repairing to download...")
-    clean_status()
-    command = 'yt-dlp'
+def get_command_string(url:str):
+    if url == "":
+        return ""
+    
+    command = 'yt-dlp --impersonate chrome'
+    command += " --concurrent-fragments=6"
 
     if usingVrVideoClient.get():
         command += ' --extractor-arg "youtube:player_client=android_vr"'
@@ -117,17 +120,38 @@ def download_video_runner():
 
     if usingCookieChrome.get():
         command += " --cookies-from-browser chrome"
+
+    command += " --no-cache-dir --no-mtime --buffer-size 256K"
+    command += " " + url.strip()
+
+    return command
+
+def download_video_runner():
+    downloadButton.config(state=tk.DISABLED)
+    print("Repairing to download...")
+    clean_status()
     
-    urlValue = urlString.get()
+    urlValue = urlString.get().strip()
     if urlValue == "":
         print("URL is empty")
         tk.Label(window, text="URL is empty", fg="red").grid(row=STATUS_ROW, sticky=tk.W)
         reset_state()
         return
-    
-    command += " " + urlString.get().strip()
-    print("downloading video, url: " + command)
 
+    # get url array
+    urlArray = urlValue.split(',')
+    if urlArray.count == 0:
+        return
+
+    if urlArray[0] == "":
+        urlArray.clear()
+        return
+    
+    url = urlArray.pop(0)
+    downloadCommand = get_command_string(url)
+    download_video_thread(downloadCommand)
+
+def download_video_thread(command:str):
     try:
         threading.Thread(target=download_video, args=(command, window), daemon=True).start()
 
